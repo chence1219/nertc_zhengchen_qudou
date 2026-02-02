@@ -53,6 +53,7 @@ public:
     virtual std::string GetBoardJson() = 0;
     virtual std::string GetDeviceStatusJson() = 0;
     virtual std::string GetBoardName();
+    virtual std::string GetDeviceId();
     virtual void StartBlufiMode(bool blufi);
     virtual void StartBlufiOtaMode(const std::string& upgrade_url, const std::string& upgrade_version, const std::string& md5);
 };

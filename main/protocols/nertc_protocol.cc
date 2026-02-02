@@ -35,7 +35,7 @@ std::string NeRtcProtocol::config_file_path_ = "/spiffs/config.json";
 #endif
 
 NeRtcProtocol::NeRtcProtocol() {
-    std::string device_id = Board::GetInstance().GetBoardName();
+    std::string device_id = Board::GetInstance().GetDeviceId();
     ESP_LOGI(TAG, "Start create nertc sdk device_id:%s Free: %u minimal: %u", device_id.c_str(), heap_caps_get_free_size(MALLOC_CAP_INTERNAL), heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
 
     int local_frame_duration_config = 0;

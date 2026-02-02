@@ -127,6 +127,8 @@ std::string Board::GetSystemInfoJson() {
     json += R"("application":{)";
     json += R"("name":")" + std::string(app_desc->project_name) + R"(",)";
     json += R"("version":")" + std::string(app_desc->version) + R"(",)";
+    json += "\"board_name\":\"" + GetBoardName() + "\",";
+    json += "\"device_id\":\"" + GetDeviceId() + "\",";
     json += R"("compile_time":")" + std::string(app_desc->date) + R"(T)" + std::string(app_desc->time) + R"(Z",)";
     json += R"("idf_version":")" + std::string(app_desc->idf_ver) + R"(",)";
     char sha256_str[65];
@@ -180,6 +182,20 @@ std::string Board::GetSystemInfoJson() {
 
 
 std::string Board::GetBoardName() {
+    Settings settings("board", true);
+    std::string name = settings.GetString("name");
+    settings.EraseKey("name");
+
+    auto app_desc = esp_app_get_description();
+    name = SystemInfo::GetWifiName("qudou");
+    settings.SetString("name", name);
+    
+    ESP_LOGI(TAG, "GetBoardName name=%s", name.c_str());
+
+    return name;
+}
+
+std::string Board::GetDeviceId() {
     return SystemInfo::GetMacAddress();
 }
 
@@ -193,7 +209,7 @@ void Board::StartBlufiMode(bool blufi) {
         auto app_desc = esp_app_get_description();
         Settings settings("board", true);
         settings.SetString("id",        SystemInfo::GetMacAddress());
-        settings.SetString("type",      std::string("yunxin"));
+        settings.SetString("type",      std::string("zhengchen"));
         settings.SetString("version",   esp_app_get_description()->version);
         settings.SetInt("blufi",        blufi ? 1 : 0);
         
