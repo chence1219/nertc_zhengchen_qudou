@@ -23,8 +23,6 @@
 #define USE_SAFE_MODE 0
 #define JOIN_EVENT (1 << 0)
 
-#define NERTC_DEFAULT_TEST_LICENSE "eyJhbGdvcml0aG0iOiJkZWZhdWx0IiwiY3JlZGVudGlhbCI6eyJhY3RpdmF0ZURhdGUiOjE3NTkxMjAyMTQsImV4cGlyZURhdGUiOjE3OTMyNDgyMTQsImxpY2Vuc2VLZXkiOiJ5dW54aW5Db21tb25UZXN0Iiwibm9uY2UiOiJQLW85S3o5RTI2WSJ9LCJzaWduYXR1cmUiOiJFcUt4c2s5TTFNWGp2dWE5Z3J4MGVYVkxxdHBrMm5aWUoyMHNIM0x4LzVMT0tFL3BOTktadDdmNG04eVE5ZWFIQmxHS2NaYUdmaVlNeTdtZ1pYTjVLVFRvZzk2K2RYZmhuZ1N4UG9YUDZBUkNHdHlmZ1N1SDFtbGlxYUYyNWVrWVlRQzUwV3V5ZHFMRzJyaDB1cVhrR05oSkhtVWtRdnVndU1sVlZjc2JLelRCNGRubmtzVVhOcm12aEZXQS9IUTNqd0kyYmFaOTNlMzM4UkFjYTRlVHBTeUhkb1EzRlNGVkpxUXBWRHlJVXhOb21ORXhJT1Z2bzN5dkdRcERLTldjVUFFejFQN1R0Z3ozS1U4RnZYT09sRXNPTU5UYzRxdU9JSWp1SWNRaE1aK2FrSHlDRURHSE04TUthYkdTU2JZOXN1NWVwdjZEZUZxWjEza29wK1pHK2c9PSIsInZlcnNpb24iOiIxLjAifQ=="
-
 static const char* const RTC_CALL_STATE_STRINGS[] = {
     "idle",
     "pre_connecting",
@@ -131,9 +129,6 @@ NeRtcProtocol::NeRtcProtocol() {
 
     // 日志配置
     sdk_config.log_cfg.log_level = NERTC_SDK_LOG_INFO;
-
-    // License配置
-    sdk_config.licence_cfg.license = local_license_config.empty() ? NERTC_DEFAULT_TEST_LICENSE : local_license_config.c_str();
 
     ESP_LOGI(TAG, "Start set nertc sdk handler: Free: %u minimal: %u",
             heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
