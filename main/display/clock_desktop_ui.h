@@ -56,6 +56,7 @@ private:
     void DestroyUI();
     void UpdateTime();
     void UpdateDate();
+    void UpdateAlarm();
     static void TimerCallback(void* arg);
     static void DelayShowTimerCallback(void* arg);
     void CheckChargingAndStandbyState();
@@ -77,6 +78,7 @@ private:
     lv_obj_t* weather_icon_label_ = nullptr;
     lv_obj_t* weather_text_label_ = nullptr;
     lv_obj_t* air_quality_label_ = nullptr;
+    lv_obj_t* alarm_label_ = nullptr;  // 闹钟信息标签
     
     // 状态栏对象（复用现有状态栏）
     lv_obj_t* network_label_ = nullptr;

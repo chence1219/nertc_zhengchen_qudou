@@ -4,6 +4,7 @@
 #include "display/settings_page_ui.h"
 #include "board.h"
 #include "application.h"
+#include "boards/zhengchen-qudou/alarm.h"
 
 #include <esp_log.h>
 #include <esp_timer.h>
@@ -150,6 +151,7 @@ void ClockDesktopUI::Update() {
     DisplayLockGuard lock(display_);
     UpdateTime();
     UpdateDate();
+    UpdateAlarm();
     
     // 更新状态栏（网络和电池图标）
     auto& board = Board::GetInstance();
@@ -224,6 +226,9 @@ void ClockDesktopUI::SetTheme(LvglTheme* theme) {
     // 更新文字颜色
     if (date_label_ != nullptr) {
         lv_obj_set_style_text_color(date_label_, text_color, 0);
+    }
+    if (alarm_label_ != nullptr) {
+        lv_obj_set_style_text_color(alarm_label_, text_color, 0);
     }
     
     // 时间数字颜色（白色确保在灰色背景上清晰）
@@ -528,6 +533,16 @@ void ClockDesktopUI::CreateUI() {
     lv_obj_set_style_bg_opa(minute_ones_label_, LV_OPA_TRANSP, 0);
     lv_label_set_text(minute_ones_label_, "4");
 
+    // 闹钟标签（显示在时钟下方）
+    alarm_label_ = lv_label_create(content);
+    lv_obj_set_style_text_font(alarm_label_, text_font, 0);
+    lv_obj_set_style_text_color(alarm_label_, theme_->text_color(), 0);
+    lv_obj_set_style_text_align(alarm_label_, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_width(alarm_label_, LV_PCT(100));
+    lv_obj_set_style_margin_top(alarm_label_, 8, 0);
+    lv_obj_set_style_margin_bottom(alarm_label_, 2, 0);
+    lv_label_set_text(alarm_label_, "");
+
     /* // 获取时钟容器宽度，用于对齐其他容器
     int clock_container_width = 270; 
 
@@ -611,6 +626,7 @@ void ClockDesktopUI::DestroyUI() {
     weather_icon_label_ = nullptr;
     weather_text_label_ = nullptr;
     air_quality_label_ = nullptr;
+    alarm_label_ = nullptr;
     network_label_ = nullptr;
     status_label_ = nullptr;
     battery_label_ = nullptr;
@@ -664,6 +680,30 @@ void ClockDesktopUI::UpdateDate() {
     snprintf(date_str, sizeof(date_str), "%02d/%02d %s", 
              tm->tm_mon + 1, tm->tm_mday, weekdays[tm->tm_wday]);
     lv_label_set_text(date_label_, date_str);
+}
+
+void ClockDesktopUI::UpdateAlarm() {
+    if (alarm_label_ == nullptr) {
+        return;
+    }
+    
+    auto& board = Board::GetInstance();
+    auto* alarm_manager = board.GetAlarmManager();
+    
+    if (alarm_manager != nullptr && alarm_manager->HasActiveAlarm()) {
+        std::vector<AlarmInfo> alarms;
+        if (alarm_manager->GetAlarmList(alarms) && !alarms.empty()) {
+            // 显示闹钟信息：名称和时间
+            char alarm_text[64];
+            snprintf(alarm_text, sizeof(alarm_text), "⏰ %s %s", 
+                     alarms[0].name.c_str(), alarms[0].format_time.c_str());
+            lv_label_set_text(alarm_label_, alarm_text);
+        } else {
+            lv_label_set_text(alarm_label_, "");
+        }
+    } else {
+        lv_label_set_text(alarm_label_, "");
+    }
 }
 
 void ClockDesktopUI::TimerCallback(void* arg) {

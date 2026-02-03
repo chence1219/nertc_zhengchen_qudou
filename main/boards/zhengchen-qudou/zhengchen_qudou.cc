@@ -1,4 +1,5 @@
 #include "device_state.h"
+#include "alarm.h"
 #include "dual_network_board.h"
 #include "codecs/box_audio_codec.h"
 #include "display/lcd_display.h"
@@ -14,6 +15,7 @@
 #include "power_manager.h"
 #include "power_save_timer.h"
 #include "settings.h"
+#include "assets/lang_config.h"
 
 #include <esp_log.h>
 #include <esp_lcd_panel_vendor.h>
@@ -188,6 +190,7 @@ private:
     Pca9557* pca9557_;
     int64_t boot_time_us_; 
     bool is_settings_page_visible_ = false;
+    AlarmManager* alarm_manager_ = nullptr;
     
     void InitializePowerManager() {
         // 使用PCA9557 IO6读取充电状态（低电平=充电，高电平=未充电）
@@ -481,6 +484,15 @@ private:
     }
 
 
+    void InitializeAlarmManager() {
+        alarm_manager_ = new AlarmManager();
+        alarm_manager_->SetAlarmCallback([this](const std::string& name, const std::string& format_time) {
+            ESP_LOGI(TAG, "Alarm triggered: %s at %s", name.c_str(), format_time.c_str());
+            auto& app = Application::GetInstance();
+            app.Alert("闹钟", name.c_str(), "bell",Lang::Sounds::OGG_BELL);
+        });
+    }
+
     void InitializeCamera() {
         // Open camera power
         pca9557_->SetOutputState(2, 0);
@@ -542,6 +554,7 @@ public:
         InitializeButtons();
         InitializeVolumeButtons();
         InitializeCamera();
+        InitializeAlarmManager();
         GetBacklight()->RestoreBrightness();
     }
 
@@ -579,6 +592,10 @@ public:
 
     virtual Camera* GetCamera() override {
         return camera_;
+    }
+
+    virtual AlarmManager* GetAlarmManager() override {
+        return alarm_manager_;
     }
 
     virtual void SetPowerSaveMode(bool enabled) override {

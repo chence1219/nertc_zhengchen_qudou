@@ -23,6 +23,7 @@
 #define USE_SAFE_MODE 0
 #define JOIN_EVENT (1 << 0)
 
+
 static const char* const RTC_CALL_STATE_STRINGS[] = {
     "idle",
     "pre_connecting",
@@ -129,6 +130,7 @@ NeRtcProtocol::NeRtcProtocol() {
 
     // 日志配置
     sdk_config.log_cfg.log_level = NERTC_SDK_LOG_INFO;
+
 
     ESP_LOGI(TAG, "Start set nertc sdk handler: Free: %u minimal: %u",
             heap_caps_get_free_size(MALLOC_CAP_INTERNAL),

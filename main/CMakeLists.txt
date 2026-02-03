@@ -422,3 +422,109 @@ if ("${size}" AND "${offset}")
 else()
     message(STATUS "Assets partition not found, using v1 partition table")
 endif()
+
+# Build config.bin for custom partition and add blufi_app.bin
+partition_table_get_partition_info(custom_size "--partition-name custom" "size")
+partition_table_get_partition_info(custom_offset "--partition-name custom" "offset")
+if("${custom_size}" AND "${custom_offset}")
+    # First check if config.bin exists in project root
+    set(PROJECT_ROOT_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/../config.bin")
+    set(CONFIG_BIN "")
+    
+    if(EXISTS "${PROJECT_ROOT_CONFIG}")
+        # Use existing config.bin from project root
+        set(CONFIG_BIN "${PROJECT_ROOT_CONFIG}")
+        message(STATUS "Using existing config.bin from project root: ${CONFIG_BIN}")
+    else()
+        # Try to generate config.bin in build directory
+        set(CONFIG_BIN "${CMAKE_BINARY_DIR}/config.bin")
+        
+        # Determine local_config directory - check multiple locations
+        set(LOCAL_CONFIG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../local_config")
+        
+        # Check if local_config exists, if not use board config.json
+        if(NOT EXISTS "${LOCAL_CONFIG_DIR}")
+            # Try to use board-specific config.json
+            set(BOARD_CONFIG_JSON "${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/config.json")
+            if(EXISTS "${BOARD_CONFIG_JSON}")
+                # Create temporary local_config directory in build dir
+                file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/local_config")
+                configure_file(
+                    "${BOARD_CONFIG_JSON}"
+                    "${CMAKE_BINARY_DIR}/local_config/config.json"
+                    COPYONLY
+                )
+                set(LOCAL_CONFIG_DIR "${CMAKE_BINARY_DIR}/local_config")
+                message(STATUS "Using board config.json: ${BOARD_CONFIG_JSON}")
+            else()
+                message(WARNING "local_config directory not found and board config.json not found, skipping config.bin generation")
+                set(CONFIG_BIN "")
+            endif()
+        endif()
+        
+        if(CONFIG_BIN AND EXISTS "${LOCAL_CONFIG_DIR}")
+            # Check if spiffsgen.py exists, if not skip generation
+            set(SPIFFSGEN_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../create_local_config/spiffsgen.py")
+            if(EXISTS "${SPIFFSGEN_SCRIPT}")
+                # Build config.bin using config.py script
+                add_custom_command(
+                    OUTPUT ${CONFIG_BIN}
+                    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../config.py 
+                        --build 
+                        --output ${CONFIG_BIN} 
+                        --input ${LOCAL_CONFIG_DIR}
+                        --size ${custom_size} 
+                        --write-at ${custom_offset} 
+                        --target ${IDF_TARGET}
+                    DEPENDS 
+                        ${CMAKE_CURRENT_SOURCE_DIR}/../config.py
+                        ${LOCAL_CONFIG_DIR}/config.json
+                    COMMENT "Building config.bin for custom partition"
+                    VERBATIM
+                )
+                
+                # Create a custom target to ensure config.bin is built
+                add_custom_target(config_bin_target ALL
+                    DEPENDS ${CONFIG_BIN}
+                    COMMENT "Ensuring config.bin is built"
+                )
+                message(STATUS "Config.bin will be generated: ${CONFIG_BIN}")
+            else()
+                message(WARNING "spiffsgen.py not found at ${SPIFFSGEN_SCRIPT}, skipping config.bin generation")
+                set(CONFIG_BIN "")
+            endif()
+        endif()
+    endif()
+    
+    # Add config.bin to flash if it exists or will be generated
+    if(CONFIG_BIN)
+        get_filename_component(CONFIG_BIN_ABS "${CONFIG_BIN}" ABSOLUTE)
+        esptool_py_flash_to_partition(flash "custom" "${CONFIG_BIN_ABS}")
+        message(STATUS "Config.bin flash configured: ${CONFIG_BIN_ABS} -> custom partition (0x${custom_offset})")
+    else()
+        message(WARNING "No config.bin available, skipping custom partition flash")
+    endif()
+    
+    # Add blufi_app.bin to flash
+    partition_table_get_partition_info(blufi_offset "--partition-name blufi" "offset")
+    if("${blufi_offset}")
+        # Determine blufi binary name based on target
+        if(IDF_TARGET STREQUAL "esp32-c3")
+            set(BLUFI_BIN_NAME "blufi_app_c3.bin")
+        else()
+            set(BLUFI_BIN_NAME "blufi_app.bin")
+        endif()
+        
+        # Use absolute path for blufi binary
+        get_filename_component(BLUFI_BIN_ABS "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/blufi_app/bin/${BLUFI_BIN_NAME}" ABSOLUTE)
+        
+        if(EXISTS "${BLUFI_BIN_ABS}")
+            esptool_py_flash_to_partition(flash "blufi" "${BLUFI_BIN_ABS}")
+            message(STATUS "Blufi binary flash configured: ${BLUFI_BIN_ABS} -> blufi partition (0x${blufi_offset})")
+        else()
+            message(WARNING "Blufi binary not found: ${BLUFI_BIN}, skipping blufi flash")
+        endif()
+    endif()
+else()
+    message(STATUS "Custom partition not found, skipping config.bin and blufi flash")
+endif()

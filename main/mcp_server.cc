@@ -18,6 +18,7 @@
 #include "lvgl_theme.h"
 #include "lvgl_display.h"
 #include "lcd_display.h"
+#include "boards/zhengchen-qudou/alarm.h"
  
  #define TAG "MCP"
  
@@ -44,10 +45,10 @@
      // Custom tools must be added in the board's InitializeTools function.
  
      AddTool("self.get_device_status",
-         "Provides the real-time information of the device, including the current status of the audio speaker, screen, battery, network, etc.\n"
-         "Use this tool for: \n"
-         "1. Answering questions about current condition (e.g. what is the current volume of the audio speaker?)\n"
-         "2. As the first step to control the device (e.g. turn up / down the volume of the audio speaker, etc.)",
+        "获取设备实时状态信息，包括：扬声器音量、屏幕状态、电池、网络等。\n"
+        "适用场景：\n"
+        "1. 回答用户关于设备当前状态的问题（例如“现在音量是多少？”）\n"
+        "2. 进行设备控制前的状态确认（例如先读取音量，再决定调大/调小）",
          PropertyList(),
          [&board](const PropertyList& properties) -> ReturnValue {
              return board.GetDeviceStatusJson();
@@ -63,7 +64,8 @@
         });
 
      AddTool("self.audio_speaker.set_volume", 
-         "Set the volume of the audio speaker. If the current volume is unknown, you must call `self.get_device_status` tool first and then call this tool.",
+         "设置扬声器音量。\n"
+         "如果当前音量未知，建议先调用 `self.get_device_status` 获取状态后再设置。",
          PropertyList({
              Property("volume", kPropertyTypeInteger, 0, 100)
          }), 
@@ -78,7 +80,7 @@
      auto backlight = board.GetBacklight();
      if (backlight) {
          AddTool("self.screen.set_brightness",
-             "Set the brightness of the screen.",
+             "设置屏幕亮度（0-100）。",
              PropertyList({
                  Property("brightness", kPropertyTypeInteger, 0, 100)
              }),
@@ -93,7 +95,8 @@
     auto display = board.GetDisplay();
     if (display && display->GetTheme() != nullptr) {
         AddTool("self.screen.set_theme",
-            "Set the theme of the screen. The theme can be `light` or `dark`.",
+            "设置屏幕主题。\n"
+            "可选值：`light`（浅色）或 `dark`（深色）。",
             PropertyList({
                 Property("theme", kPropertyTypeString)
             }),
@@ -112,7 +115,9 @@
         auto lcd_display = dynamic_cast<LcdDisplay*>(display);
         if (lcd_display) {
             AddTool("self.screen.set_text_mode",
-                "Set the display mode. `true` for text mode (shows chat messages and static emotion images), `false` for emotion mode (fullscreen emotion display, no chat messages).",
+                "设置屏幕显示模式。\n"
+                "`true`：文字模式（显示聊天文本 + 静态表情图）。\n"
+                "`false`：表情模式（全屏表情，不显示聊天文本）。",
                 PropertyList({
                     Property("text_mode", kPropertyTypeBoolean)
                 }),
@@ -123,7 +128,8 @@
                 });
             
             AddTool("self.screen.get_text_mode",
-                "Get the current display mode. Returns `true` for text mode, `false` for emotion mode.",
+                "获取当前屏幕显示模式。\n"
+                "返回：`true` 表示文字模式，`false` 表示表情模式。",
                 PropertyList(),
                 [lcd_display](const PropertyList& properties) -> ReturnValue {
                     cJSON *json = cJSON_CreateObject();
@@ -171,11 +177,12 @@
             });
 #else
         AddTool("self.camera.take_photo",
-            "Take a photo and explain it. Use this tool after the user asks you to see something.\n"
-            "Args:\n"
-            "  `question`: The question that you want to ask about the photo.\n"
-            "Return:\n"
-            "  A JSON object that provides the photo information.",
+            "拍照并根据用户问题进行解释/分析。\n"
+            "适用场景：用户让你“看看/拍照/识别/描述画面”等。\n"
+            "参数：\n"
+            "- question：用户希望你结合照片回答的问题。\n"
+            "返回：\n"
+            "- 一个包含照片信息/解释结果的 JSON 对象。",
             PropertyList({
                 Property("question", kPropertyTypeString)
             }),
@@ -192,6 +199,40 @@
 #endif
      }
  #endif
+
+     // Add alarm tool if alarm manager is available
+     auto alarm_manager = board.GetAlarmManager();
+     if (alarm_manager) {
+         AddTool("self.alarm.set_alarm",
+             "设置闹钟。只能设置一个闹钟，如果已有闹钟，新设置的闹钟会覆盖旧的。\n"
+             "参数说明：\n"
+             "- name: 闹钟名称（例如：\"起床\"、\"提醒\"等）\n"
+             "- seconds_from_now: 从现在开始多少秒后触发闹钟（必须大于0）\n"
+             "示例：设置一个60秒后触发的闹钟，名称为\"起床\"",
+             PropertyList({
+                 Property("name", kPropertyTypeString),
+                 Property("seconds_from_now", kPropertyTypeInteger, 1, 86400)  // 1秒到24小时
+             }),
+             [alarm_manager](const PropertyList& properties) -> ReturnValue {
+                 auto name = properties["name"].value<std::string>();
+                 int seconds = properties["seconds_from_now"].value<int>();
+                 
+                 AlarmError error = alarm_manager->SetAlarm("alarm", name, seconds, true);
+                 
+                 if (error == ALARM_ERROR_NONE) {
+                     std::vector<AlarmInfo> alarms;
+                     if (alarm_manager->GetAlarmList(alarms) && !alarms.empty()) {
+                         return "{\"success\":true,\"message\":\"闹钟设置成功\",\"alarm\":{\"name\":\"" + 
+                                alarms[0].name + "\",\"time\":\"" + alarms[0].format_time + "\"}}";
+                     }
+                     return "{\"success\":true,\"message\":\"闹钟设置成功\"}";
+                 } else if (error == ALARM_ERROR_INVALID_ALARM_TIME) {
+                     return "{\"success\":false,\"error\":\"无效的闹钟时间\"}";
+                 } else {
+                     return "{\"success\":false,\"error\":\"设置闹钟失败\"}";
+                 }
+             });
+     }
  
      // Restore the original tools list to the end of the tools list
      tools_.insert(tools_.end(), original_tools.begin(), original_tools.end());
@@ -200,14 +241,14 @@
  void McpServer::AddUserOnlyTools() {
      // System tools
     AddUserOnlyTool("self.get_system_info",
-        "Get the system information",
+        "获取系统信息（软硬件版本、构建信息、运行状态等）。",
         PropertyList(),
         [](const PropertyList& properties) -> ReturnValue {
             auto& board = Board::GetInstance();
             return board.GetSystemInfoJson();
         });
 
-    AddUserOnlyTool("self.reboot", "Reboot the system",
+    AddUserOnlyTool("self.reboot", "重启设备。",
         PropertyList(),
         [](const PropertyList& properties) -> ReturnValue {
             auto& app = Application::GetInstance();
@@ -221,9 +262,10 @@
         });
 
     // Firmware upgrade
-    AddUserOnlyTool("self.upgrade_firmware", "Upgrade firmware from a specific URL. This will download and install the firmware, then reboot the device.",
+    AddUserOnlyTool("self.upgrade_firmware",
+        "从指定 URL 升级固件：下载并安装固件，完成后设备会自动重启。",
         PropertyList({
-            Property("url", kPropertyTypeString, "The URL of the firmware binary file to download and install")
+            Property("url", kPropertyTypeString, "固件二进制文件的下载地址（URL）")
         }),
         [](const PropertyList& properties) -> ReturnValue {
             auto url = properties["url"].value<std::string>();
@@ -246,7 +288,8 @@
  #ifdef HAVE_LVGL
      auto display = dynamic_cast<LvglDisplay*>(Board::GetInstance().GetDisplay());
      if (display) {
-         AddUserOnlyTool("self.screen.get_info", "Information about the screen, including width, height, etc.",
+        AddUserOnlyTool("self.screen.get_info",
+            "获取屏幕信息（宽度、高度、是否单色等）。",
              PropertyList(),
              [display](const PropertyList& properties) -> ReturnValue {
                  cJSON *json = cJSON_CreateObject();
@@ -260,7 +303,8 @@
                  return json;
              });
  
-         AddUserOnlyTool("self.screen.snapshot", "Snapshot the screen and upload it to a specific URL",
+        AddUserOnlyTool("self.screen.snapshot",
+            "截取当前屏幕并上传到指定 URL。",
              PropertyList({
                  Property("url", kPropertyTypeString),
                  Property("quality", kPropertyTypeInteger, 80, 1, 100)
@@ -272,7 +316,7 @@
                  uint8_t* jpeg_output_data = nullptr;
                  size_t jpeg_output_size = 0;
                  if (!display->SnapshotToJpeg(jpeg_output_data, jpeg_output_size, quality)) {
-                     throw std::runtime_error("Failed to snapshot screen");
+                    throw std::runtime_error("截屏失败");
                  }
  
                  ESP_LOGI(TAG, "Upload snapshot %u bytes to %s", jpeg_output_size, url.c_str());
@@ -317,7 +361,8 @@
                  return true;
              });
          
-         AddUserOnlyTool("self.screen.preview_image", "Preview an image on the screen",
+        AddUserOnlyTool("self.screen.preview_image",
+            "在屏幕上预览一张图片（通过 URL 下载后显示）。",
              PropertyList({
                  Property("url", kPropertyTypeString)
              }),
@@ -359,10 +404,11 @@
      }
  #endif
  
-    // Assets download url
+    // 资源包（assets）下载地址
     auto& assets = Assets::GetInstance();
     if (assets.partition_valid()) {
-        AddUserOnlyTool("self.assets.set_download_url", "Set the download url for the assets",
+        AddUserOnlyTool("self.assets.set_download_url",
+            "设置资源包（assets）的下载地址（URL）。",
             PropertyList({
                 Property("url", kPropertyTypeString)
             }),

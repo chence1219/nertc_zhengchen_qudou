@@ -737,7 +737,6 @@ void LcdDisplay::SetChatMessage(const char* role, const char* content) {
         }
         return;
     }
-
     std::string content_str(content);
     if (content_str.rfind("%", 0) == 0) {
         if (content_str.find("camera.take_photo") != std::string::npos) {
@@ -747,9 +746,15 @@ void LcdDisplay::SetChatMessage(const char* role, const char* content) {
         return;
     }
 
-    DeviceState current_state = Application::GetInstance().GetDeviceState();
-    if (current_state == kDeviceStateListening) {
-        return;
+    if (role != nullptr && strcmp(role, "user") == 0) {
+        if (chat_message_image_ != nullptr && !lv_obj_has_flag(chat_message_image_, LV_OBJ_FLAG_HIDDEN)) {
+            if (chat_message_gif_controller_) {
+                chat_message_gif_controller_->Stop();
+                chat_message_gif_controller_.reset();
+            }
+            lv_obj_add_flag(chat_message_image_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_remove_flag(chat_message_label_, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     
     lv_label_set_text(chat_message_label_, content);

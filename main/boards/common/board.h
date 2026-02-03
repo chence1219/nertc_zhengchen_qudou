@@ -13,10 +13,10 @@
 #include "camera.h"
 #include "assets.h"
 
-
 void* create_board();
 class AudioCodec;
 class Display;
+class AlarmManager;
 class Board {
 private:
     Board(const Board&) = delete; // 禁用拷贝构造函数
@@ -56,6 +56,8 @@ public:
     virtual std::string GetDeviceId();
     virtual void StartBlufiMode(bool blufi);
     virtual void StartBlufiOtaMode(const std::string& upgrade_url, const std::string& upgrade_version, const std::string& md5);
+    
+    virtual AlarmManager* GetAlarmManager() { return nullptr; }
 };
 
 #define DECLARE_BOARD(BOARD_CLASS_NAME) \

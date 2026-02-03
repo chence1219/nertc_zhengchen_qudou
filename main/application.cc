@@ -496,7 +496,7 @@ void Application::Start() {
             SetDeviceState(kDeviceStateIdle);
         });
     });
-    protocol_->OnIncomingJson([this, display](const cJSON* root) {
+    protocol_->OnIncomingJson([this](const cJSON* root) {
         // Parse JSON data
         auto type = cJSON_GetObjectItem(root, "type");
         if (strcmp(type->valuestring, "tts") == 0) {
@@ -526,8 +526,11 @@ void Application::Start() {
                 auto text = cJSON_GetObjectItem(root, "text");
                 if (cJSON_IsString(text)) {
                     ESP_LOGI(TAG, "<< %s", text->valuestring);
-                    Schedule([this, display, message = std::string(text->valuestring)]() {
-                        display->SetChatMessage("assistant", message.c_str());
+                    Schedule([this, message = std::string(text->valuestring)]() {
+                        auto display = Board::GetInstance().GetDisplay();
+                        if (display != nullptr) {
+                            display->SetChatMessage("assistant", message.c_str());
+                        }
                     });
                 }
             }
@@ -535,15 +538,21 @@ void Application::Start() {
             auto text = cJSON_GetObjectItem(root, "text");
             if (cJSON_IsString(text)) {
                 ESP_LOGI(TAG, ">> %s", text->valuestring);
-                Schedule([this, display, message = std::string(text->valuestring)]() {
-                    display->SetChatMessage("user", message.c_str());
+                Schedule([this, message = std::string(text->valuestring)]() {
+                    auto display = Board::GetInstance().GetDisplay();
+                    if (display != nullptr) {
+                        display->SetChatMessage("user", message.c_str());
+                    }
                 });
             }
         } else if (strcmp(type->valuestring, "llm") == 0) {
             auto emotion = cJSON_GetObjectItem(root, "emotion");
             if (cJSON_IsString(emotion)) {
-                Schedule([this, display, emotion_str = std::string(emotion->valuestring)]() {
-                    display->SetEmotion(emotion_str.c_str());
+                Schedule([this, emotion_str = std::string(emotion->valuestring)]() {
+                    auto display = Board::GetInstance().GetDisplay();
+                    if (display != nullptr) {
+                        display->SetEmotion(emotion_str.c_str());
+                    }
                 });
             }
         } else if (strcmp(type->valuestring, "mcp") == 0) {
@@ -582,8 +591,11 @@ void Application::Start() {
             auto payload = cJSON_GetObjectItem(root, "payload");
             ESP_LOGI(TAG, "Received custom message: %s", cJSON_PrintUnformatted(root));
             if (cJSON_IsObject(payload)) {
-                Schedule([this, display, payload_str = std::string(cJSON_PrintUnformatted(payload))]() {
-                    display->SetChatMessage("system", payload_str.c_str());
+                Schedule([this, payload_str = std::string(cJSON_PrintUnformatted(payload))]() {
+                    auto display = Board::GetInstance().GetDisplay();
+                    if (display != nullptr) {
+                        display->SetChatMessage("system", payload_str.c_str());
+                    }
                 });
             } else {
                 ESP_LOGW(TAG, "Invalid custom message format: missing payload");
